@@ -10,18 +10,22 @@ class Lesti_Merge_Core_Model_Layout_Update extends Mage_Core_Model_Layout_Update
 {
     const HANDLE_ATTRIBUTE = 'data-handle'; //attribute used to store handle
 
-    protected function _checkMatch($string, $matches)
+    protected function _checkMatch($item, $matches)
     {
-        $found = false;
-
-        foreach ($matchesArray as $match) {
-            if (strpos($string, $match) !== false) {
-                $found = true;
+        foreach (['file', 'name', 'script', 'stylesheet'] as $type) {
+            if (isset($item->{$type})) {
+                $filename = (string) $item->{$type};
                 break;
             }
         }
 
-        return $found;
+        foreach ($matches as $match) {
+            if (strpos($filename, $match) !== false) {
+                return $filename;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -36,50 +40,52 @@ class Lesti_Merge_Core_Model_Layout_Update extends Mage_Core_Model_Layout_Update
     public function getFileLayoutUpdatesXml($area, $package, $theme, $storeId = null)
     {
         $xml = parent::getFileLayoutUpdatesXml($area, $package, $theme, $storeId);
-        if(Mage::getDesign()->getArea() != 'adminhtml') {
+        if (Mage::getDesign()->getArea() != 'adminhtml') {
             $shouldMergeJs = Mage::getStoreConfigFlag('dev/js/merge_files') &&
                 Mage::getStoreConfigFlag('dev/js/merge_js_by_handle');
             $shouldMergeCss = Mage::getStoreConfigFlag('dev/css/merge_css_files') &&
                 Mage::getStoreConfigFlag('dev/css/merge_css_by_handle');
 
             $excludeJs = array_map('trim', explode(',', Mage::getStoreConfig('dev/js/merge_js_excludes')));
-            $excludeCss = array_map('trim', explode(',', Mage::getStoreConfig('dev/js/merge_css_excludes')));
+            $excludeCss = array_map('trim', explode(',', Mage::getStoreConfig('dev/css/merge_css_excludes')));
 
             $methods = array();
-            if($shouldMergeJs) {
+            if ($shouldMergeJs) {
                 $methods[] = 'addJs';
             }
-            if($shouldMergeCss) {
+            if ($shouldMergeCss) {
                 $methods[] = 'addCss';
             }
-            if($shouldMergeJs || $shouldMergeCss) {
+            if ($shouldMergeJs || $shouldMergeCss) {
                 $methods[] = 'addItem';
             }
-            foreach($methods as $method) {
-                foreach($xml->children() as $handle => $child){
+            foreach ($methods as $method) {
+                foreach ($xml->children() as $handle => $child) {
                     $items = $child->xpath(".//action[@method='".$method."']");
-                    foreach($items as $item) {
-                        if ((string)$item->{'type'} == 'skin_js' && !$this->_checkMatch((string)$item->{'script'}, $excludeJs)) {
-                                $handle = md5((string)$item->{'script'});
-                        }
-                        if ((string)$item->{'type'} == 'skin_css' && !$this->_checkMatch((string)$item->{'stylesheet'}, $excludeCss)) {
-                                $handle = md5((string)$item->{'stylesheet'});
+                    foreach ($items as $item) {
+                        $paramsHandle = $handle;
+
+                        if (in_array((string)$item->{'type'}, ['skin_js', 'js']) && $itemName = $this->_checkMatch($item, $excludeJs)) {
+                                $paramsHandle = $itemName;
+                        } else if ((string)$item->{'type'} == 'skin_css' && $itemName = $this->_checkMatch($item, $excludeCss)) {
+                                $paramsHandle = $itemName;
                         }
 
-                        if ($method == 'addItem' && ((!$shouldMergeCss && (string)$item->{'type'} == 'skin_css') || (!$shouldMergeJs && (string)$item->{'type'} == 'skin_js'))){
+                        if ($method == 'addItem' && ((!$shouldMergeCss && (string)$item->{'type'} == 'skin_css') || (!$shouldMergeJs && (string)$item->{'type'} == 'skin_js'))) {
                             continue;
                         }
+
                         $params = $item->xpath("params");
-                        if(count($params)) {
-                            foreach($params as $param){
-                                if(trim($param)) {
-                                    $param[0] = (string)$param . ' ' . static::HANDLE_ATTRIBUTE . '="' . $handle . '"';
+                        if (count($params)) {
+                            foreach ($params as $param){
+                                if (trim($param)) {
+                                    $param[0] = (string)$param . ' ' . static::HANDLE_ATTRIBUTE . '="' . $paramsHandle . '"';
                                 } else {
-                                    $param[0] = static::HANDLE_ATTRIBUTE . '="' . $handle . '"';
+                                    $param[0] = static::HANDLE_ATTRIBUTE . '="' . $paramsHandle . '"';
                                 }
                             }
                         } else {
-                            $item->addChild('params', static::HANDLE_ATTRIBUTE . '="'.$handle.'"');
+                            $result = $item->addChild('params', static::HANDLE_ATTRIBUTE . '="'.$paramsHandle.'"');
                         }
                     }
                 }
@@ -89,3 +95,4 @@ class Lesti_Merge_Core_Model_Layout_Update extends Mage_Core_Model_Layout_Update
     }
 
 }
+
