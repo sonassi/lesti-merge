@@ -65,7 +65,7 @@ class Lesti_Merge_Core_Model_Layout_Update extends Mage_Core_Model_Layout_Update
                     foreach ($items as $item) {
                         $paramsHandle = $handle;
 
-                        if (in_array((string)$item->{'type'}, ['skin_js', 'js']) && $itemName = $this->_checkMatch($item, $excludeJs)) {
+                        if ((in_array((string)$item->{'type'}, ['skin_js', 'js']) OR $method == 'addJs') && $itemName = $this->_checkMatch($item, $excludeJs)) {
                                 $paramsHandle = $itemName;
                         } else if ((string)$item->{'type'} == 'skin_css' && $itemName = $this->_checkMatch($item, $excludeCss)) {
                                 $paramsHandle = $itemName;
