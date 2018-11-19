@@ -18,7 +18,8 @@ class Lesti_Merge_Core_Model_Layout_Update extends Mage_Core_Model_Layout_Update
                 break;
             }
         }
-
+	
+	$matches = array_filter($matches);
         foreach ($matches as $match) {
             if (strpos($filename, $match) !== false) {
                 return $filename;
